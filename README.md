@@ -30,5 +30,5 @@ npm run build   # build de produção (Nitro)
 
 - TanStack Start, React, TypeScript
 - Tailwind CSS
-- Leaflet + basemap CARTO sem rótulos
+- Leaflet + basemap OpenFreeMap sem rótulos
 - h3-js

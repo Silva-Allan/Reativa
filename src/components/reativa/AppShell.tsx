@@ -99,21 +99,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mobileOnly = path.startsWith("/campo") || path.startsWith("/cidadao") || path.startsWith("/login");
   const isActive = (to: string) => path === to.replace("$id", "1") || (to === "/relatorios" && path.startsWith("/relatorios"));
 
-  const banner = <div className="no-print bg-signal py-0.5 text-center text-[11px] font-medium text-paper">Protótipo — dados fictícios</div>;
-
   if (mobileOnly) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile audience={path.startsWith("/cidadao")} /></div>
+        <div className="no-print sticky top-0 z-[1000]"><TopBar mobile audience={path.startsWith("/cidadao")} /></div>
         <main className="mx-auto max-w-[420px] px-4 py-4">{children}</main>
       </div>
     );
   }
   return (
     <div className="dark min-h-screen bg-background text-foreground">
-      <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile={false} /></div>
+      <div className="no-print sticky top-0 z-[1000]"><TopBar mobile={false} /></div>
       <div className="flex">
-        <aside className="no-print sticky top-[78px] hidden h-[calc(100vh-78px)] w-56 shrink-0 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2 py-3 md:block">
+        <aside className="no-print sticky top-[58px] hidden h-[calc(100vh-58px)] w-56 shrink-0 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2 py-3 md:block">
           {phases.map((ph) => (
             <div key={ph.label} className="mb-4">
               <div className="label-phase px-2 pb-1 text-sidebar-foreground/60">{ph.label}</div>

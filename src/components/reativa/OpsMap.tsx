@@ -1,19 +1,30 @@
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Polygon, Polyline, CircleMarker, Tooltip, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Polygon, Polyline, CircleMarker, Tooltip, Popup, useMap } from "react-leaflet";
 import { CITY_CENTER, off, type LatLng } from "@/mock/data";
 
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { maplibreGL } from "@maplibre/maplibre-gl-leaflet";
+import { setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useApp } from "@/store/app";
 import { mc } from "./mapColors";
 
-const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-// CARTO no-labels basemap: the city is fictional, so real place names must not appear on the tiles.
+// OpenFreeMap vector basemap (free, no API key). The city is fictional, so every
+// symbol layer (real place and street names) is hidden; our own labels are drawn below.
 function Basemap() {
   const map = useMap();
-  const dark = Boolean(map.getContainer().closest(".dark"));
-  const style = dark ? "dark_nolabels" : "light_nolabels";
-  return <TileLayer key={style} url={`https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`} subdomains="abcd" maxZoom={20} attribution={CARTO_ATTRIBUTION} />;
+  useEffect(() => {
+    setWorkerUrl(workerUrl);
+    const dark = Boolean(map.getContainer().closest(".dark"));
+    const layer = maplibreGL({ style: `https://tiles.openfreemap.org/styles/${dark ? "dark" : "positron"}`, attributionControl: false });
+    layer.addTo(map);
+    const gl = layer.getMaplibreMap();
+    gl.on("style.load", () => { for (const l of gl.getStyle().layers ?? []) if (l.type === "symbol") gl.setLayoutProperty(l.id, "visibility", "none"); });
+    map.attributionControl.addAttribution("© OpenFreeMap · © OpenStreetMap contributors");
+    return () => { map.removeLayer(layer); };
+  }, [map]);
+  return null;
 }
 
 export interface MapLayer {
