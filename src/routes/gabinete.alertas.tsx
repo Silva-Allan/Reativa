@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useApp } from "@/store/app";
-import { fmtDateTime, rainSeries, RAIN_THRESHOLD, riskAreas } from "@/mock/data";
+import { fmtDateTime, rainSeries, RAIN_THRESHOLD, riskAreas, routes } from "@/mock/data";
+import { ALERT_SCENARIO_LEVEL, scenario, southScenario } from "@/mock/risk";
 import { Chip, PageHead, Panel } from "@/components/reativa/bits";
 import { LazyMap } from "@/components/reativa/LazyMap";
 import { mc } from "@/components/reativa/mapColors";
@@ -16,8 +17,11 @@ export const Route = createFileRoute("/gabinete/alertas")({
 const pt = { Severe: "Severo", Extreme: "Extremo", Moderate: "Moderado", Expected: "Esperada", Immediate: "Imediata", Likely: "Provável", Observed: "Observada" } as const;
 
 function Alertas() {
-  const { alerts, step, suggestions, acceptSuggestion } = useApp();
+  const { alerts, step, suggestions, acceptSuggestion, resources } = useApp();
   const data = rainSeries(step);
+  const sim = scenario(ALERT_SCENARIO_LEVEL, [], resources);
+  const south = southScenario(ALERT_SCENARIO_LEVEL, resources);
+  const b07 = resources.find((r) => r.id === "CBM-B07");
   return (
     <div>
       <PageHead phase="1 Gatilho" title="Alertas e monitoramento" sub="Fonte: IDAP · CAP 1.2 (somente leitura) e Cemaden VS-03 (fictício)" />
@@ -73,13 +77,27 @@ function Alertas() {
           </Panel>
         </div>
         <div className="space-y-4">
-          <Button asChild variant="outline"><Link to="/gabinete/risco" search={{ level: 2 }}>Ver cenário no gêmeo digital</Link></Button>
-          <LazyMap className="h-[360px]" zoom={13} layers={() => ({
-            polygons: [
-              ...alerts.map((a) => ({ positions: a.polygon, color: mc.orange(), fill: 0.18, dashed: true, label: `Polígono CAP: ${a.event}` })),
-              ...riskAreas.map((r) => ({ positions: r.polygon, color: mc.red(), fill: 0.25, label: r.name })),
-            ],
-          })} />
+          {alerts.length > 0 ? (
+            <Panel title="Por que o sistema sugere? · gêmeo digital +2,0 m" action={<Button asChild size="sm" variant="outline"><Link to="/gabinete/risco" search={{ level: ALERT_SCENARIO_LEVEL }}>Ver cenário no gêmeo digital</Link></Button>}>
+              <LazyMap className="h-[300px]" zoom={13} layers={() => ({
+                polygons: [
+                  ...alerts.map((a) => ({ positions: a.polygon, color: mc.orange(), fill: 0.08, dashed: true, label: `Polígono CAP: ${a.event}`, interactive: false })),
+                  ...sim.flooded.map((c) => ({ positions: c.polygon, color: mc.blue(), weight: 0.3, fill: south.cells.includes(c) ? 0.75 : 0.3, label: `Alagada a +2,0 m · ${c.population} pessoas` })),
+                  ...riskAreas.map((r) => ({ positions: r.polygon, color: mc.red(), fill: 0, weight: 2, label: r.name })),
+                ],
+                lines: b07 ? [{ positions: routes.b07Prepos, color: mc.orange(), weight: 3, dashed: true, label: "Pré-posicionamento sugerido: CBM-B07 → Zona Sul" }] : [],
+                points: b07 ? [{ pos: b07.pos, color: mc.orange(), radius: 8, label: `CBM-B07 · ${b07.zone}` }] : [],
+              })} />
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                <div><dt className="text-xs text-muted-foreground">Pessoas expostas · Zona Sul</dt><dd className="font-semibold tabular-nums">{south.people}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Células alagadas · Zona Sul</dt><dd className="font-semibold tabular-nums">{south.cells.length}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Barcos CBM na Zona Sul</dt><dd className={south.boats.length ? "font-semibold" : "font-semibold text-signal"}>{south.boats.length}</dd></div>
+              </dl>
+              <p className="mt-2 text-xs text-muted-foreground">Chuva acima do limiar + alerta CAP → o sistema simula o rio a +2,0 m. A Zona Sul fica exposta e sem barco: daí a sugestão de pré-posicionar CBM-B07.</p>
+            </Panel>
+          ) : (
+            <LazyMap className="h-[360px]" zoom={13} layers={() => ({ polygons: riskAreas.map((r) => ({ positions: r.polygon, color: mc.red(), fill: 0.25, label: r.name })) })} />
+          )}
           <Panel title="Sugestões do sistema" action={<span className="text-xs text-muted-foreground">O sistema propõe; você decide</span>}>
             {!suggestions.length && <p className="text-sm text-muted-foreground">Sem sugestões no momento.</p>}
             <div className="space-y-3">

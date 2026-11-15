@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildState, useApp } from "@/store/app";
-import { selectFide, selectAssistance, selectMetrics, shelterOccupancy } from "@/store/selectors";
-import { contains, riskCells, riskFactors, scenario } from "@/mock/risk";
-import { INCIDENT_POS, floodPolygon, riskAreas, routes, stepNames, fmtDateTime, at } from "@/mock/data";
+import { selectAffectedAreas, selectFide, selectAssistance, selectMetrics, shelterOccupancy } from "@/store/selectors";
+import { contains, GRID_BOUNDS, riskCells, riskFactors, scenario } from "@/mock/risk";
+import { INCIDENT_POS, floodPolygon, riskAreas, riverLine, routes, stepNames, fmtDateTime, at, requiredStep } from "@/mock/data";
 
 describe("Reativa scenario rules", () => {
   it("counts 27 desabrigados from shelter records after rescue", () => {
@@ -81,5 +81,52 @@ describe("Reativa scenario rules", () => {
   });
   it("formats dates with a full year and time", () => {
     expect(fmtDateTime(at(108))).toBe("14/11/2026 15:28");
+  });
+});
+
+describe("Polish round", () => {
+  it("counts only Ponte Velha as an affected risk area in the scripted event", () => {
+    const areas = selectAffectedAreas(buildState(8));
+    expect(areas.map((a) => a.area.name)).toEqual(["Ponte Velha"]);
+  });
+  it("adds areas inside the flood extent only after the coordinator accepts it", () => {
+    useApp.getState().applyStep(8);
+    useApp.getState().updateFlood();
+    expect(selectAffectedAreas(useApp.getState()).length).toBe(3);
+  });
+  it("step 8 waits for the coordinator's click, then demobilizes at 16:25", () => {
+    useApp.getState().applyStep(8, { animateClose: true });
+    expect(useApp.getState().pendingClose).toBe(true);
+    expect(useApp.getState().stage).toBe("Crise");
+    useApp.getState().closeEvent();
+    const s = useApp.getState();
+    expect(s.stage).toBe("Normalidade");
+    const close = s.audit.find((e) => e.action.startsWith("Encerrar e desmobilizar"));
+    expect(close && fmtDateTime(close.at)).toBe("14/11/2026 16:25");
+    expect(s.audit.map((e) => e.at)).toEqual([...s.audit.map((e) => e.at)].sort());
+  });
+  it("deep links hydrate to the first step with data", () => {
+    expect(requiredStep("/gabinete/ocorrencias/1/plano")).toBe(4);
+    expect(requiredStep("/gabinete/abrigos")).toBe(7);
+    expect(requiredStep("/relatorios/fide")).toBe(8);
+    expect(buildState(8).closed).toBe(true);
+  });
+  it("seeds Defesa Civil and Assistência Social resources", () => {
+    const rs = buildState(0).resources;
+    expect(rs.filter((r) => r.agency === "dc").map((r) => r.id)).toEqual(["DC-V01", "DC-V02", "DC-D02"]);
+    expect(rs.filter((r) => r.agency === "as")).toHaveLength(1);
+  });
+  it("calibrates risk: river core Alto+, band Médio or lower, rest Baixo or lower", () => {
+    for (const rain of [86, 134]) {
+      for (const c of riskCells) {
+        const k = riskFactors(c, rain).classIndex;
+        if (c.zone === "núcleo") expect(k).toBeGreaterThanOrEqual(3);
+        else if (c.zone === "entorno") expect(k).toBeLessThanOrEqual(2);
+        else expect(k).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+  it("grid covers the whole river course", () => {
+    expect(riverLine.every((p) => contains(p, GRID_BOUNDS))).toBe(true);
   });
 });

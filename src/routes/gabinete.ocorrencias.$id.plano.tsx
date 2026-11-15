@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Check, ChevronDown, Clock, MapPin, Repeat, Users } from "lucide-react";
 import { FIELD_STEPS, useApp } from "@/store/app";
-import { fmtTime, INCIDENT_POS, playbook, riskAreas } from "@/mock/data";
+import { fmtTime, INCIDENT_POS, playbook, riskAreas, type ReportSource } from "@/mock/data";
 import { Chip, Fase2, PageHead, Panel, Sev } from "@/components/reativa/bits";
 import { LazyMap } from "@/components/reativa/LazyMap";
 import { mc } from "@/components/reativa/mapColors";
@@ -15,16 +16,31 @@ export const Route = createFileRoute("/gabinete/ocorrencias/$id/plano")({
   component: Plano,
 });
 
+const sourceLabel: Record<ReportSource, string> = { cidadao: "Cidadão", ssp193: "SSP 193", campo: "Equipe de campo", drone: "Drone térmico CBM-D01" };
+
 function Plano() {
-  const { incidents, assignments, resources, blockages, approveRow, approvePlan, swapRow, suggestions, acceptSuggestion, closed, closeEvent, fieldStatus } = useApp();
+  const { incidents, assignments, resources, blockages, approveRow, approvePlan, swapRow, suggestions, acceptSuggestion, closed, closeEvent, fieldStatus, pendingClose, reports, detections } = useApp();
   const [open, setOpen] = useState<string | null>(null);
+  const [pressing, setPressing] = useState(false);
+  const navigate = useNavigate();
   const inc = incidents[0];
+  // Scripted step 8: highlight the button for 1 s so the audience sees the human click, then apply it.
+  useEffect(() => {
+    if (!pendingClose) return;
+    setPressing(true);
+    const click = setTimeout(() => { setPressing(false); closeEvent(); toast.success("Coordenador encerrou o evento · estágio Normalidade"); }, 1000);
+    const next = setTimeout(() => navigate({ to: "/relatorios/$docId", params: { docId: "fide" } }), 2600);
+    return () => { clearTimeout(click); clearTimeout(next); };
+  }, [pendingClose, closeEvent, navigate]);
   if (!inc) return (
     <Panel><p className="text-sm text-muted-foreground">Nenhuma ocorrência confirmada ainda. <Link to="/gabinete/triagem" className="text-ops underline">Ir para a triagem</Link>.</p></Panel>
   );
   const allApproved = assignments.every((a) => a.status !== "proposta");
   const approver = assignments.find((a) => a.approvedBy);
   const res = (id: string) => resources.find((r) => r.id === id);
+  const linked = reports.filter((r) => inc.reportIds.includes(r.id) || r.incidentId === inc.id);
+  const sources = (Object.keys(sourceLabel) as ReportSource[]).map((src) => ({ src, n: linked.filter((r) => r.source === src).length })).filter((x) => x.n > 0);
+  const sentDetection = detections.find((d) => d.status === "enviada");
   const lineColor = (id: string) => (id === "a1" ? mc.blue() : id === "a2" ? mc.orange() : mc.slate());
   return (
     <div>
@@ -35,8 +51,17 @@ function Plano() {
       } />
       {allApproved && !closed && <div className="mb-4 flex flex-wrap gap-3 border-y py-3">
         {suggestions.filter((s) => s.id === "crisis" && s.status === "pendente").map((s) => <div key={s.id} className="flex flex-wrap items-center gap-3"><b>{s.text}</b><Button size="sm" onClick={() => acceptSuggestion(s.id, true)}>Aceitar</Button><Button size="sm" variant="outline" onClick={() => acceptSuggestion(s.id, false)}>Ignorar</Button></div>)}
-        {fieldStatus >= FIELD_STEPS.length - 1 && <Button variant="outline" onClick={closeEvent}>Encerrar e desmobilizar</Button>}
+        {fieldStatus >= FIELD_STEPS.length - 1 && <Button variant="outline" onClick={closeEvent} className={cn(pressing && "scale-95 bg-ops text-paper ring-4 ring-ops/50 transition-all duration-300")}>Encerrar e desmobilizar</Button>}
       </div>}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground">Fontes:</span>
+        {sources.map(({ src, n }) => {
+          const label = `${sourceLabel[src]}${n > 1 ? ` ×${n}` : ""}`;
+          return src === "drone" && sentDetection
+            ? <Link key={src} to="/gabinete/imagens" search={{ detection: sentDetection.id }} className="rounded hover:ring-1 hover:ring-ops"><Chip tone="blue">{label} →</Chip></Link>
+            : <Chip key={src}>{label}</Chip>;
+        })}
+      </div>
       <div className="mb-4 grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-5">
         <div><div className="text-xs text-muted-foreground">COBRADE</div><div className="font-medium">{inc.cobrade}</div></div>
         <div><div className="text-xs text-muted-foreground">Severidade</div><Sev s={inc.severity} /></div>

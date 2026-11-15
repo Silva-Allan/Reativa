@@ -1,5 +1,16 @@
 import type { Data } from "./app";
-import type { Shelter } from "@/mock/data";
+import { riskAreas, type LatLng, type RiskArea, type Shelter } from "@/mock/data";
+import { contains } from "@/mock/risk";
+
+const centroid = (poly: LatLng[]): LatLng => [poly.reduce((n, p) => n + p[0], 0) / poly.length, poly.reduce((n, p) => n + p[1], 0) / poly.length];
+/** Risk areas actually hit: those holding an incident, plus those inside a flood extent the coordinator accepted. */
+export function selectAffectedAreas(s: Data): { area: RiskArea; reasons: string[] }[] {
+  return riskAreas.flatMap((area) => {
+    const reasons = s.incidents.filter((i) => contains(i.pos, area.polygon)).map((i) => `Ocorrência #${i.id} · ${i.place}`);
+    if (s.floodAcceptedAt && contains(centroid(area.polygon), s.floodExtent)) reasons.push("Mancha de alagamento aceita (Drone RGB)");
+    return reasons.length ? [{ area, reasons }] : [];
+  });
+}
 
 export const shelterOccupancy = (s: Shelter) => s.entries.filter((e) => e.kind === "desabrigado").reduce((n, e) => n + e.people, 0);
 export const selectAssistance = (s: Data) => {

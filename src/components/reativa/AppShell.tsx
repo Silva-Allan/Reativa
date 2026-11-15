@@ -1,11 +1,13 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AlertTriangle, BarChart3, BellRing, BookOpen, ChevronLeft, ChevronRight, ClipboardList, FileText, History, Home, Map, ScanLine, Inbox, ListChecks, RotateCcw, ShieldCheck, Truck, Wrench } from "lucide-react";
 import { useApp } from "@/store/app";
-import { stepNames, stepRoutes, type Role, type Stage } from "@/mock/data";
+import { requiredStep, stepNames, stepRoutes, type Role, type Stage } from "@/mock/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import reativaIcon from "@/assets/reativa-icon.png";
 
 const phases = [
   { label: "0 Prontidão", items: [
@@ -42,7 +44,8 @@ function DemoControls({ compact }: { compact?: boolean }) {
   const navigate = useNavigate();
   const go = (n: number) => {
     const k = Math.max(0, Math.min(9, n));
-    applyStep(k);
+    // Step 8 animates the coordinator's "Encerrar e desmobilizar" click on the plan page.
+    applyStep(k, { animateClose: k === 8 });
     navigate({ to: stepRoutes[k] as string });
   };
   useEffect(() => {
@@ -56,9 +59,10 @@ function DemoControls({ compact }: { compact?: boolean }) {
     return () => window.removeEventListener("keydown", h);
   });
   return (
-    <div className="flex items-center gap-1 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-1 py-0.5">
-      <Button size="icon" variant="ghost" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-border hover:text-sidebar-accent-foreground" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Voltar"><ChevronLeft /></Button>
-      <span className={cn("px-1 text-xs tabular-nums text-sidebar-accent-foreground", compact ? "w-[90px] truncate" : "w-[340px] truncate")}>
+    <div className="flex shrink-0 items-center gap-1 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-1 py-0.5">
+      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-border hover:text-sidebar-accent-foreground" onClick={() => go(step - 1)} disabled={step === 0} aria-label="Voltar"><ChevronLeft /></Button>
+      {/* Fixed, non-shrinking width so Voltar/Próximo never shift when the label changes. */}
+      <span title={stepNames[step]} className={cn("block shrink-0 truncate px-1 text-xs tabular-nums text-sidebar-accent-foreground", compact ? "w-[90px]" : "w-[340px]")}>
         Passo {step}/9{!compact && <span className="text-sidebar-foreground"> — {stepNames[step]}</span>}
       </span>
       <Button size="icon" variant="ghost" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-border hover:text-sidebar-accent-foreground" onClick={() => go(step + 1)} disabled={step === 9} aria-label="Próximo"><ChevronRight /></Button>
@@ -73,7 +77,7 @@ function TopBar({ mobile, audience = false }: { mobile: boolean; audience?: bool
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sidebar px-3 py-2 text-sidebar-foreground">
       <Link to="/gabinete/prontidao" className="flex items-center gap-2">
-        <img src="/reativa-icon.png" alt="" className="h-8 w-8 rounded-full" />
+        <img src={reativaIcon} alt="" className="h-8 w-8 rounded-full" />
         <span className="text-base font-semibold tracking-tight text-sidebar-accent-foreground">Reativa</span>
       </Link>
       {!audience && <>
@@ -99,19 +103,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   const mobileOnly = path.startsWith("/campo") || path.startsWith("/cidadao") || path.startsWith("/login");
   const isActive = (to: string) => path === to.replace("$id", "1") || (to === "/relatorios" && path.startsWith("/relatorios"));
 
+  // Deep links / QR codes: on the first client load, bring the scenario up to the first step
+  // whose data this route needs, so e.g. the plan page never opens empty.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    const need = requiredStep(path);
+    if (useApp.getState().step >= need) return;
+    useApp.getState().applyStep(need);
+    // Defer so the Toaster (a sibling mounted in the same commit) is subscribed first.
+    setTimeout(() => toast(`Cenário carregado até o passo ${need}`, { description: stepNames[need] }), 0);
+  }, [path]);
+
+  const banner = <div className="no-print bg-signal py-0.5 text-center text-[11px] font-medium text-paper">Protótipo — dados fictícios</div>;
+
   if (mobileOnly) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="no-print sticky top-0 z-[1000]"><TopBar mobile audience={path.startsWith("/cidadao")} /></div>
+        <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile audience={path.startsWith("/cidadao")} /></div>
         <main className="mx-auto max-w-[420px] px-4 py-4">{children}</main>
       </div>
     );
   }
   return (
     <div className="dark min-h-screen bg-background text-foreground">
-      <div className="no-print sticky top-0 z-[1000]"><TopBar mobile={false} /></div>
+      <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile={false} /></div>
       <div className="flex">
-        <aside className="no-print sticky top-[58px] hidden h-[calc(100vh-58px)] w-56 shrink-0 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2 py-3 md:block">
+        <aside className="no-print sticky top-[78px] hidden h-[calc(100vh-78px)] w-56 shrink-0 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2 py-3 md:block">
           {phases.map((ph) => (
             <div key={ph.label} className="mb-4">
               <div className="label-phase px-2 pb-1 text-sidebar-foreground/60">{ph.label}</div>

@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useApp } from "@/store/app";
-import { riskCells, riskFactors, riskClasses, scenario } from "@/mock/risk";
-import { rainSeries } from "@/mock/data";
+import { classCounts, handClass, handLabels, riskCells, riskFactors, riskClasses, scenario } from "@/mock/risk";
+import { rainSeries, riskAreas, riverLine } from "@/mock/data";
 import { LazyMap } from "@/components/reativa/LazyMap";
 import { mc } from "@/components/reativa/mapColors";
 import { Chip, Kpi, PageHead } from "@/components/reativa/bits";
@@ -16,29 +16,48 @@ export const Route = createFileRoute("/gabinete/risco")({
   head: () => seo("Gêmeo digital · mapa de risco", "Cenário HAND e exposição por hexágonos em Vale Sereno."),
   component: Risk,
 });
+
+type Layer = "risk" | "hand" | "exposure" | "history";
 function Risk() {
   const s = useApp();
   const { level } = Route.useSearch();
-  const [layer, setLayer] = useState("risk");
+  const [layer, setLayer] = useState<Layer>("risk");
   useEffect(() => { if (level !== undefined && Number.isFinite(level)) s.setRiverLevel(level); }, [level, s.setRiverLevel]);
   const rain = rainSeries(s.step).at(-1)?.mm ?? 0;
   const exposed = scenario(s.riverLevel, s.shelters, s.resources);
   const flooded = new Set(exposed.flooded.map((c) => c.id));
   const proposals = s.suggestions.filter((x) => x.id.startsWith("move:") || x.id.startsWith("activate:"));
+  const counts = classCounts(rain);
+  const handCounts = [0, 0, 0, 0, 0];
+  for (const c of riskCells) handCounts[handClass(c.handM)]!++;
+  const isHand = layer === "hand";
   return <div>
     <PageHead phase="0 Prontidão" title="Gêmeo digital · mapa de risco" sub="Vale Sereno · H3 resolução 9 · cenário sintético" />
-    <Tabs value={layer} onValueChange={setLayer}><TabsList className="mb-4 h-auto flex-wrap"><TabsTrigger value="risk">Índice de risco</TabsTrigger><TabsTrigger value="hand">Relevo (HAND)</TabsTrigger><TabsTrigger value="exposure">Exposição</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList></Tabs>
+    <Tabs value={layer} onValueChange={(v) => setLayer(v as Layer)}><TabsList className="mb-4 h-auto flex-wrap"><TabsTrigger value="risk">Índice de risco</TabsTrigger><TabsTrigger value="hand">Relevo (HAND)</TabsTrigger><TabsTrigger value="exposure">Exposição</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger></TabsList></Tabs>
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
       <div>
         <LazyMap className="h-[520px]" zoom={13} layers={() => ({
-          polygons: riskCells.map((c) => {
-            const f = riskFactors(c, rain);
-            const index = layer === "hand" ? Math.max(0, 4 - Math.floor(c.handM / 2)) : layer === "exposure" ? Math.min(4, Math.floor(f.exposure * 5)) : layer === "history" ? Math.min(4, Math.floor(c.historyEvents / 2)) : f.classIndex;
-            return { positions: c.polygon, color: flooded.has(c.id) ? mc.blue() : mc.risk(index), fill: flooded.has(c.id) ? 0.8 : 0.65, label: `${riskClasses[f.classIndex]} · HAND ${c.handM} m`, popup: <div className="space-y-1 text-xs"><b>{riskClasses[f.classIndex]} · {c.id}</b><p>HAND: {c.handM} m · peso 60%</p><p>Declividade: {c.slopePct}% · peso 15%</p><p>Histórico: {c.historyEvents} eventos · peso 25%</p><p>População: {c.population} · peso 50%</p><p>Edificações: {c.buildings} · peso 30%</p><p>Vulneráveis: {c.vulnerableCount} · peso 20%</p><p>Suscetibilidade: {f.susceptibility.toFixed(2)} × exposição: {f.exposure.toFixed(2)} × gatilho: {f.trigger.toFixed(2)} ({rain} / 120 mm; mínimo 1)</p><b>Índice: {f.riskIndex.toFixed(3)}</b></div> };
-          }),
+          polygons: [
+            ...riskCells.map((c) => {
+              const f = riskFactors(c, rain);
+              const index = layer === "exposure" ? Math.min(4, Math.floor(f.exposure * 5)) : layer === "history" ? Math.min(4, Math.floor(c.historyEvents / 1.5)) : f.classIndex;
+              const color = flooded.has(c.id) ? mc.blue() : isHand ? mc.hand(handClass(c.handM)) : mc.risk(index);
+              return { positions: c.polygon, color, weight: 0.5, fill: flooded.has(c.id) ? 0.8 : 0.65, label: `${riskClasses[f.classIndex]} · HAND ${c.handM} m`, popup: <div className="space-y-1 text-xs"><b>{riskClasses[f.classIndex]} · {c.id}</b><p>HAND: {c.handM} m · peso 60%</p><p>Declividade: {c.slopePct}% · peso 15%</p><p>Histórico: {c.historyEvents} eventos · peso 25%</p><p>População: {c.population} · peso 50%</p><p>Edificações: {c.buildings} · peso 30%</p><p>Vulneráveis: {c.vulnerableCount} · peso 20%</p><p>Suscetibilidade: {f.susceptibility.toFixed(2)} × exposição: {f.exposure.toFixed(2)} × gatilho: {f.trigger.toFixed(2)} ({rain} / 120 mm; mínimo 1)</p><b>Índice: {f.riskIndex.toFixed(3)}</b></div> };
+            }),
+            // Neighbourhood outlines on top of the hexes; non-interactive so cell popups still open.
+            ...riskAreas.map((r) => ({ positions: r.polygon, color: mc.paper(), weight: 2, fill: 0, dashed: true, interactive: false })),
+          ],
+          // River with a light casing so it reads on every palette, including flooded (blue) cells.
+          lines: [{ positions: riverLine, color: mc.paper(), weight: 7, interactive: false }, { positions: riverLine, color: mc.navy(), weight: 3.5, interactive: false }],
           points: s.shelters.map((sh) => ({ pos: sh.pos, color: exposed.shelters.some((x) => x.id === sh.id) ? mc.red() : mc.green(), radius: 8, label: sh.name })),
         })} />
-        <div className="mt-3 flex flex-wrap gap-3 text-xs">{riskClasses.map((name, i) => <span key={name} className="flex items-center gap-1"><span className={`risk-swatch risk-swatch-${i}`} />{name}</span>)}<span className="text-ops">Azul · água simulada</span></div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+          {isHand
+            ? handLabels.map((name, i) => <span key={name} className="flex items-center gap-1.5"><span className={`risk-swatch hand-swatch-${i}`} />{name} <span className="tabular-nums text-muted-foreground">({handCounts[i]})</span></span>)
+            : riskClasses.map((name, i) => <span key={name} className="flex items-center gap-1.5"><span className={`risk-swatch risk-swatch-${i}`} />{name}{layer === "risk" && <span className="tabular-nums text-muted-foreground">({counts[i]})</span>}</span>)}
+          <span className="text-ops">Azul · água simulada</span>
+        </div>
+        {isHand && <p className="mt-1 text-xs text-muted-foreground">HAND: altura acima da drenagem mais próxima. Verde-azulado escuro = perto do rio; areia = terreno alto.</p>}
         <p className="mt-3 text-xs text-muted-foreground">HAND é uma aproximação. Modelo hidrodinâmico calibrado: fase 2.</p>
       </div>
       <aside className="space-y-4">

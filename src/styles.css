@@ -176,16 +176,21 @@
 
 :root {
   --risk-0: #DCE6F9; --risk-1: #ABC3ED; --risk-2: #8299CE; --risk-3: #BD637A; --risk-4: #E12130;
-  --thermal-cold: #38236A; --thermal-mid: #AA387D; --thermal-hot: #F9E35F;
+  /* Thermal (ironbow-like) scale, 8 °C → 37 °C */
+  --thermal-water: #0D0722; --thermal-ground: #24113F; --thermal-roof: #3D1A5E; --thermal-ridge: #55246F;
+  --thermal-mid: #AA387D; --thermal-warm: #E8713A; --thermal-hot: #F9E35F; --thermal-white: #FFFBEA;
 }
 .city-label.leaflet-tooltip { background: var(--graphite-800); color: var(--paper); border: 0; box-shadow: none; font-size: 10px; padding: 2px 4px; }
 .city-label.leaflet-tooltip::before { display: none; }
 .leaflet-popup-content-wrapper { background: var(--popover); color: var(--foreground); }
-.thermal-frame { background: var(--thermal-cold); }
-.thermal-roof { fill: var(--thermal-mid); stroke: var(--thermal-hot); }
-.thermal-water { fill: var(--ops-blue); opacity: .45; }
-.thermal-hotspot { fill: var(--thermal-hot); }
-.thermal-box { fill: none; stroke: var(--thermal-hot); stroke-width: 2; }
+.thermal-frame { background: var(--thermal-ground); }
+.thermal-ground { fill: var(--thermal-ground); }
+.thermal-water { fill: var(--thermal-water); }
+.thermal-roof { fill: var(--thermal-roof); }
+.thermal-ridge { fill: none; stroke: var(--thermal-ridge); stroke-width: 3; }
+.thermal-box { fill: none; stroke: #7CF2FF; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.thermal-box .thermal-box-focus { stroke-width: 3; stroke-dasharray: none; }
+.thermal-text { fill: #E6E1F2; }
 @media (max-width: 640px) { .a4-page { padding: 24px 16px; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 
@@ -195,3 +200,10 @@
 .risk-swatch-2 { background: var(--risk-2); }
 .risk-swatch-3 { background: var(--risk-3); }
 .risk-swatch-4 { background: var(--risk-4); }
+/* HAND terrain palette: dark teal (low, near the river) → light sand (high ground). */
+:root { --hand-0: #0E4A55; --hand-1: #2F7F7A; --hand-2: #7FAF97; --hand-3: #CDBF8E; --hand-4: #F1E4C3; }
+.hand-swatch-0 { background: var(--hand-0); }
+.hand-swatch-1 { background: var(--hand-1); }
+.hand-swatch-2 { background: var(--hand-2); }
+.hand-swatch-3 { background: var(--hand-3); }
+.hand-swatch-4 { background: var(--hand-4); }

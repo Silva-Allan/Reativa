@@ -69,6 +69,10 @@ const r = (callsign: string, type: string, agency: string, capacity: number, zon
   id: callsign, callsign, type, agency, capacity, zone, status, lastCheckIn: at(-ageMin), pos: off(x, y),
 });
 export const seedResources = (): Resource[] => [
+  r("DC-V01", "Viatura", "dc", 4, "Centro", 30, -150, 350),
+  r("DC-V02", "Viatura", "dc", 4, "Sul", 40, 800, -1150),
+  r("DC-D02", "Drone", "dc", 1, "Centro", 20, -50, 450),
+  r("AS-VAN01", "Van", "as", 12, "Centro", 45, -350, 650),
   r("CBM-B03", "Barco", "cbm", 6, "Norte", 40, 200, 1500, "reservado"),
   r("CBM-B05", "Barco", "cbm", 4, "Centro", 55, -900, 200),
   r("CBM-B07", "Barco", "cbm", 6, "Centro", 30, -200, 600),
@@ -118,7 +122,8 @@ export const routes = {
   ambA: P([[-600, 400], [0, 300], [400, 0], [410, -200], [450, -420]]),
   ambB: P([[-600, 400], [-1000, 100], [-950, -700], [0, -750], [450, -420]]),
   gm: P([[1200, 200], [800, -150], [450, -420]]),
-  b07Prepos: P([[-200, 600], [100, -900], [300, -1600]]),
+  // From CBM-B07's base to where it is staged once the suggestion is accepted (see buildState).
+  b07Prepos: P([[-200, 600], [50, 150], [300, -280]]),
 };
 
 export const capAlert: CapAlert = {
@@ -197,6 +202,23 @@ export const stepRoutes = [
   "/gabinete/ocorrencias/1/plano",
   "/campo",
   "/gabinete/abrigos",
-  "/relatorios/fide",
+  // Step 8 opens the plan so the audience sees the coordinator click "Encerrar e desmobilizar";
+  // the plan page then moves on to the FIDE.
+  "/gabinete/ocorrencias/1/plano",
   "/gabinete/linha-do-tempo",
 ] as const;
+
+/** First demo step whose scenario data a route needs; used to hydrate deep links and QR codes. */
+export function requiredStep(path: string): number {
+  if (path.startsWith("/gabinete/linha-do-tempo")) return 9;
+  if (path.startsWith("/relatorios")) return 8;
+  if (path.startsWith("/gabinete/abrigos")) return 7;
+  if (path.startsWith("/campo")) return 5;
+  if (path.startsWith("/gabinete/ocorrencias") || path.startsWith("/gabinete/mapa") || path.startsWith("/orgao/tarefas")) return 4;
+  if (path.startsWith("/gabinete/imagens")) return 3;
+  if (path.startsWith("/gabinete/triagem")) return 2;
+  if (path.startsWith("/gabinete/alertas")) return 1;
+  return 0;
+}
+/** Minutes after T0 at which the coordinator closes the event in the scripted demo (16:25). */
+export const CLOSE_MIN = 165;

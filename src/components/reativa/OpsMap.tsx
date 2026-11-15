@@ -28,8 +28,8 @@ function Basemap() {
 }
 
 export interface MapLayer {
-  polygons?: { positions: LatLng[]; color: string; fill?: number; dashed?: boolean; label?: string; popup?: ReactNode }[];
-  lines?: { positions: LatLng[]; color: string; weight?: number; dashed?: boolean; label?: string }[];
+  polygons?: { positions: LatLng[]; color: string; fill?: number; fillColor?: string; weight?: number; dashed?: boolean; label?: string; popup?: ReactNode; interactive?: boolean }[];
+  lines?: { positions: LatLng[]; color: string; weight?: number; dashed?: boolean; label?: string; interactive?: boolean }[];
   points?: { pos: LatLng; color: string; label: string; radius?: number; square?: boolean }[];
 }
 
@@ -42,13 +42,13 @@ export default function OpsMap({ layers, zoom = 14, center = CITY_CENTER }: { la
       <Polygon positions={extent} pathOptions={{ color: mc.blue(), weight: 1, fillOpacity: 0.12 }}><Tooltip sticky>Mancha de alagamento</Tooltip></Polygon>
       {[{ pos: off(-1250, 140), label: "Ribeirinho" }, { pos: off(470, -100), label: "Ponte Velha" }, { pos: off(1550, -780), label: "Jardim das Águas" }, { pos: off(-2200, -280), label: "Rio Sereno" }].map((l) => <CircleMarker key={l.label} center={l.pos} radius={0} opacity={0}><Tooltip permanent direction="center" className="city-label">{l.label}</Tooltip></CircleMarker>)}
       {layers.polygons?.map((p, i) => (
-        <Polygon key={`pg${i}`} positions={p.positions} pathOptions={{ color: p.color, weight: 1.5, fillOpacity: p.fill ?? 0.15, dashArray: p.dashed ? "6 4" : undefined }}>
+        <Polygon key={`pg${i}`} positions={p.positions} interactive={p.interactive ?? true} pathOptions={{ color: p.color, weight: p.weight ?? 1.5, fillOpacity: p.fill ?? 0.15, fillColor: p.fillColor ?? p.color, dashArray: p.dashed ? "6 4" : undefined }}>
           {p.label && <Tooltip sticky>{p.label}</Tooltip>}
           {p.popup && <Popup maxWidth={300}>{p.popup}</Popup>}
         </Polygon>
       ))}
       {layers.lines?.map((l, i) => (
-        <Polyline key={`ln${i}`} positions={l.positions} pathOptions={{ color: l.color, weight: l.weight ?? 4, dashArray: l.dashed ? "8 6" : undefined, opacity: 0.9 }}>
+        <Polyline key={`ln${i}`} positions={l.positions} interactive={l.interactive ?? true} pathOptions={{ color: l.color, weight: l.weight ?? 4, dashArray: l.dashed ? "8 6" : undefined, opacity: 0.9 }}>
           {l.label && <Tooltip sticky>{l.label}</Tooltip>}
         </Polyline>
       ))}

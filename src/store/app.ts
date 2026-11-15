@@ -4,13 +4,17 @@ import {
   type Assignment, type AuditEvent, type Blockage, type CapAlert, type CitizenReport, type DamageRecord, type Incident,
   type ShelterEntry, type LatLng, type Photo, type ReportDoc, type Resource, type Role, type Shelter, type Stage, type Suggestion, type Task,
 } from "@/mock/data";
-import { floodPolygon } from "@/mock/data";
-import { scenario, observedFlood } from "@/mock/risk";
+import { floodPolygon, CLOSE_MIN } from "@/mock/data";
+import { scenario, observedFlood, southScenario, ALERT_SCENARIO_LEVEL } from "@/mock/risk";
 
 export const FIELD_STEPS = ["A caminho", "No local", "Vítimas resgatadas", "Encaminhadas", "Concluído"] as const;
 
 export interface Detection { id: string; label: string; confidence: number; status: "pendente" | "enviada" | "descartada"; reason?: string | undefined; imageId: string }
 export interface Data {
+  /** Set when the coordinator accepts an observed flood extent (Drone RGB); null = model extent only. */
+  floodAcceptedAt: string | null;
+  /** Step 8 of the scripted demo: the plan page highlights "Encerrar e desmobilizar" and then applies it. */
+  pendingClose: boolean;
   riverLevel: number; floodExtent: LatLng[]; displaced: ShelterEntry[]; humanRecords: { id: string; kind: string; people: number; at: string; source: string }[]; missionStatus: "em voo" | "processando" | "pronto"; detections: Detection[]; calibration: number | null;
   step: number; stage: Stage; resources: Resource[]; shelters: Shelter[]; alerts: CapAlert[]; suggestions: Suggestion[];
   reports: CitizenReport[]; incidents: Incident[]; assignments: Assignment[]; blockages: Blockage[]; damages: DamageRecord[];
@@ -29,10 +33,11 @@ const baseDocs = (): ReportDoc[] => [
 
 const ev = (min: number, actor: string, action: string): AuditEvent => ({ at: at(min), actor, action });
 
-export function buildState(step: number): Data {
+export function buildState(step: number, opts: { animateClose?: boolean } = {}): Data {
   const phase = step >= 4 ? step - 1 : Math.min(step, 2);
   const d: Data = {
-    riverLevel: 0, floodExtent: floodPolygon, displaced: [], humanRecords: [], missionStatus: step === 2 ? "processando" : step >= 3 ? "pronto" : "em voo", detections: [{ id: "hot1", label: "Possível pessoa · telhado, Rua Sete", confidence: 0.86, status: "pendente", imageId: "thermal-1" }, { id: "hot2", label: "Telhado aquecido", confidence: 0.41, status: "pendente", imageId: "thermal-1" }], calibration: null,
+    floodAcceptedAt: null, pendingClose: false,
+    riverLevel: 0, floodExtent: floodPolygon, displaced: [], humanRecords: [], missionStatus: step === 2 ? "processando" : step >= 3 ? "pronto" : "em voo", detections: [{ id: "hot1", label: "Possível pessoa · telhado, Rua Sete", confidence: 0.86, status: "pendente", imageId: "thermal-1" }, { id: "hot2", label: "Caixa d'água aquecida · telhado vizinho", confidence: 0.41, status: "pendente", imageId: "thermal-1" }], calibration: null,
     step, stage: "Normalidade", resources: seedResources(), shelters: seedShelters(), alerts: [], suggestions: [],
     reports: [], incidents: [], assignments: [], blockages: [], photos: [], docs: baseDocs(), tasks: [],
     damages: [
@@ -47,7 +52,7 @@ export function buildState(step: number): Data {
     d.alerts = [capAlert];
     d.suggestions = [
       { id: "s1", text: "Elevar para Alerta", detail: "Chuva 72h em 134 mm ultrapassou o limiar de 120 mm do PLANCON; alerta CAP Severo ativo.", status: "pendente" },
-      { id: "s2", text: "Pré-posicionar CBM-B07 na Zona Sul", detail: "Zona Sul concentra 2 das 3 áreas de risco e não possui barco disponível.", status: "pendente" },
+      { id: "s2", text: "Pré-posicionar CBM-B07 na Zona Sul", detail: `Gêmeo digital, cenário +2,0 m: ${southScenario(ALERT_SCENARIO_LEVEL, d.resources).people} pessoas expostas na Zona Sul, que concentra 2 das 3 áreas de risco e não tem barco do CBM disponível.`, status: "pendente" },
     ];
     d.audit.push(ev(70, "IDAP", "Alerta CAP recebido: Inundação · Severo"), ev(72, "Cemaden VS-03", "Chuva 72h ultrapassou 120 mm (134 mm)"), ev(73, "Sistema", "Proposta: elevar para Alerta; pré-posicionar CBM-B07"));
   }
@@ -78,10 +83,10 @@ export function buildState(step: number): Data {
     d.audit.push(ev(95, "Cidadão", "Relato VS-2026-000111 recebido"), ev(100, "SSP 193", "Ocorrência espelhada recebida"));
   }
   if (step >= 4) {
-    d.detections = d.detections.map((x) => ({ ...x, status: x.id === "hot1" ? "enviada" : "descartada", reason: x.id === "hot2" ? "Telhado aquecido, sem indício de pessoa" : undefined }));
+    d.detections = d.detections.map((x) => ({ ...x, status: x.id === "hot1" ? "enviada" : "descartada", reason: x.id === "hot2" ? "Caixa d'água aquecida pelo sol, sem indício de pessoa" : undefined }));
     d.reports.push({ id: "drone1", protocol: "CBM-D01-01", at: at(102), source: "drone", kind: "socorro", text: "Drone térmico: possível pessoa no telhado, Rua Sete", people: 4, vulnerable: [], water: "Acima da janela", pos: INCIDENT_POS, place: "Ponte Velha", status: "em triagem", imageId: "thermal-1" });
     d.photos.push({ id: "thermal-evidence", at: at(102), pos: INCIDENT_POS, caption: "CBM-D01 · detecção térmica confirmada pelo coordenador", hue: 280, imageId: "thermal-1" });
-    d.audit.push(ev(101, "CBM-D01", "Missão térmica pronta: 2 pontos de calor"), ev(102, "Coordenador", "Enviou detecção térmica para triagem"), ev(102, "Coordenador", "Descartou falso positivo: telhado aquecido"));
+    d.audit.push(ev(101, "CBM-D01", "Missão térmica pronta: 2 pontos de calor"), ev(102, "Coordenador", "Enviou detecção térmica para triagem"), ev(102, "Coordenador", "Descartou falso positivo: caixa d'água aquecida"));
   }
   if (phase >= 3) {
     d.clusterMerged = true;
@@ -148,9 +153,14 @@ export function buildState(step: number): Data {
     d.audit.push(ev(127, "CBM-B07", "Status: Vítimas resgatadas (4)"), ev(134, "Assistência Social", "Entrada no Ginásio Municipal: 4 desabrigados"), ev(135, "Sistema", "Estoque de colchão abaixo do mínimo (18/30)"));
   }
   if (phase >= 7) {
-    d.fieldStatus = 4; d.closed = true; d.stage = "Normalidade";
-    d.resources.forEach((r) => { if (r.status === "empenhado") r.status = "disponível"; });
-    if (d.incidents[0]) d.incidents[0].status = "encerrada";
+    d.fieldStatus = 4;
+    if (opts.animateClose && step === 8) d.pendingClose = true;
+    else {
+      d.closed = true; d.stage = "Normalidade";
+      d.resources.forEach((r) => { if (r.status === "empenhado") r.status = "disponível"; });
+      if (d.incidents[0]) d.incidents[0].status = "encerrada";
+      d.audit.push(ev(CLOSE_MIN, "Coordenador", "Encerrar e desmobilizar: Ocorrência #1; estágio Normalidade"));
+    }
     d.requestItems = [{ item: "Colchão", qty: 40, reason: "Ginásio Municipal abaixo do mínimo" }];
     d.photos.push({ id: "p4", at: at(150), pos: off(1500, -600), caption: "Jardim das Águas — vias alagadas", hue: 160 });
     d.docs = d.docs.map((doc) => {
@@ -162,7 +172,7 @@ export function buildState(step: number): Data {
       if (doc.id === "parecer") return { ...doc, pct: 30 };
       return doc;
     });
-    d.audit.push(ev(160, "CBM-B07", "Status: Concluído"), ev(165, "Coordenador", "Encerrar e desmobilizar: Ocorrência #1; estágio Normalidade"), ev(166, "Sistema", `FIDE pré-preenchido; relatório fotográfico montado (${d.photos.length} imagens)`), ev(167, "Sistema", "Solicitação de recursos criada: 40 colchões"));
+    d.audit.push(ev(160, "CBM-B07", "Status: Concluído"), ev(166, "Sistema", `FIDE pré-preenchido; relatório fotográfico montado (${d.photos.length} imagens)`), ev(167, "Sistema", "Solicitação de recursos criada: 40 colchões"));
   }
   d.audit.sort((a, b) => a.at.localeCompare(b.at));
   return d;
@@ -171,7 +181,7 @@ export function buildState(step: number): Data {
 interface Store extends Data {
   setRiverLevel: (level: number) => void; generatePreposition: () => void; decideDetection: (id: string, send: boolean, reason?: string) => void; updateFlood: () => void; calibrate: (value: number) => void; closeEvent: () => void;
   demoMode: boolean; role: Role; offline: boolean; queued: number;
-  applyStep: (n: number) => void;
+  applyStep: (n: number, opts?: { animateClose?: boolean }) => void;
   setRole: (r: Role) => void;
   log: (actor: string, action: string) => void;
   acceptSuggestion: (id: string, accept: boolean) => void;
@@ -216,11 +226,22 @@ export const useApp = create<Store>((set, get) => ({
     }
     get().log("Coordenador", send ? `Enviou ${d.label} para triagem` : `Descartou ${d.label}: ${reason}`);
   },
-  updateFlood: () => { set({ floodExtent: observedFlood }); get().log("Coordenador", "Atualizou mancha de alagamento com ortomosaico RGB"); },
+  updateFlood: () => { set({ floodExtent: observedFlood, floodAcceptedAt: nowIso() }); get().log("Coordenador", "Atualizou mancha de alagamento com ortomosaico RGB"); },
   calibrate: (value) => { set({ calibration: value }); get().log("Coordenador", `Calibrou gêmeo digital: concordância ${value}%`); },
-  closeEvent: () => { set((s) => ({ closed: true, stage: "Normalidade", incidents: s.incidents.map((i) => ({ ...i, status: "encerrada" })), resources: s.resources.map((r) => r.status === "empenhado" ? { ...r, status: "disponível" } : r) })); get().log("Coordenador", "Encerrar e desmobilizar: estágio Normalidade"); },
+  closeEvent: () => {
+    const s = get();
+    if (s.closed) return;
+    // In the scripted demo the click happens at the scenario time (16:25), keeping the timeline in order.
+    const when = s.pendingClose ? at(CLOSE_MIN) : nowIso();
+    set({
+      closed: true, pendingClose: false, stage: "Normalidade",
+      incidents: s.incidents.map((i) => ({ ...i, status: "encerrada" })),
+      resources: s.resources.map((r) => r.status === "empenhado" ? { ...r, status: "disponível" } : r),
+      audit: [...s.audit, { at: when, actor: "Coordenador", action: "Encerrar e desmobilizar: Ocorrência #1; estágio Normalidade" }].sort((a, b) => a.at.localeCompare(b.at)),
+    });
+  },
   demoMode: true, role: "Coordenador", offline: false, queued: 0,
-  applyStep: (n) => set({ ...buildState(Math.max(0, Math.min(9, n))) }),
+  applyStep: (n, opts) => set({ ...buildState(Math.max(0, Math.min(9, n)), opts) }),
   setRole: (role) => set({ role }),
   log: (actor, action) => set((s) => ({ audit: [...s.audit, { at: nowIso(), actor, action }] })),
   acceptSuggestion: (id, accept) => {

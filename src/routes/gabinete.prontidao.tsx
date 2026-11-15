@@ -5,6 +5,7 @@ import { Kpi, PageHead, Panel, Chip } from "@/components/reativa/bits";
 import { LazyMap } from "@/components/reativa/LazyMap";
 import { mc } from "@/components/reativa/mapColors";
 import { selectAssistance } from "@/store/selectors";
+import { cityRisk } from "@/mock/risk";
 import { seo } from "@/lib/seo";
 
 export const Route = createFileRoute("/gabinete/prontidao")({
@@ -19,10 +20,19 @@ function Prontidao() {
   const valid = resources.filter((r) => !isCheckInLate(r, step)).length;
   const vagas = selectAssistance(state).vacancies;
   const rain = rainSeries(step).at(-1)?.mm ?? 0;
+  const risk = cityRisk(rain, shelters);
   return (
     <div>
       <PageHead phase="0 Prontidão" title="Painel de prontidão" sub="Situação dos órgãos, abrigos e áreas de risco" />
-      {step === 0 && <Link to="/gabinete/risco" className="mb-4 flex items-center justify-between rounded-md border border-ops/40 bg-ops/10 px-4 py-3 text-sm"><b>Risco atual da cidade</b><span className="text-ops">Ver gêmeo digital →</span></Link>}
+      {step === 0 && <Link to="/gabinete/risco" className="mb-4 block rounded-md border border-ops/40 bg-ops/10 px-4 py-3 text-sm hover:border-ops">
+        <div className="flex items-center justify-between"><b>Risco atual da cidade</b><span className="text-ops">Ver gêmeo digital →</span></div>
+        <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div><dt className="text-xs text-muted-foreground">Células Alto/Muito alto</dt><dd className="text-lg font-semibold tabular-nums">{risk.highCells}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Pessoas nessas células</dt><dd className="text-lg font-semibold tabular-nums">{risk.people.toLocaleString("pt-BR")}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Abrigos em área de risco</dt><dd className="text-lg font-semibold tabular-nums">{risk.shelters.length}{risk.shelters.length > 0 && <span className="ml-1 text-xs font-normal text-muted-foreground">{risk.shelters.map((s) => s.name).join(", ")}</span>}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Multiplicador de chuva</dt><dd className="text-lg font-semibold tabular-nums">×{risk.trigger.toFixed(2).replace(".", ",")}</dd><dd className="text-xs text-muted-foreground">{rain} mm / 120 mm · mínimo 1</dd></div>
+        </dl>
+      </Link>}
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi label="Recursos disponíveis" value={`${avail}/${resources.length}`} />
         <Kpi label="Check-in válido" value={`${Math.round((valid / resources.length) * 100)}%`} hint="Turno de 12 h" />

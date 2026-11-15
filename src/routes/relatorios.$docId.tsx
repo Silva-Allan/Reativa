@@ -3,12 +3,12 @@ import { useState } from "react";
 import { ArrowLeft, Copy, Printer, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/store/app";
-import { fmtDateTime, riskAreas } from "@/mock/data";
+import { fmtDateTime } from "@/mock/data";
 import { Fase2, Prov } from "@/components/reativa/bits";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { selectFide } from "@/store/selectors";
+import { selectAffectedAreas, selectFide } from "@/store/selectors";
 import { ThermalFrame } from "@/components/reativa/ThermalFrame";
 import { seo } from "@/lib/seo";
 
@@ -26,6 +26,7 @@ function Editor() {
   const [proto, setProto] = useState("");
   if (!doc) return <p>Documento não encontrado.</p>;
   const fide = selectFide(s);
+  const affected = selectAffectedAreas(s);
   const desab = fide.desabrigados;
   const desal = fide.desalojados;
   const dmg = s.damages;
@@ -64,7 +65,7 @@ function Editor() {
               <Row k="Tipo de desastre" v="1.2.1.0.0 Inundação" />
               <Row k="Data de ocorrência" v={s.incidents[0] ? fmtDateTime(s.incidents[0].createdAt) : "—"} />
               <H>2. Área afetada</H>
-              <Row k="Áreas de risco atingidas" v={<Prov value={riskAreas.length} title="Áreas" sources={riskAreas.map((a) => ({ label: a.name, meta: "Mapa de áreas de risco" }))} />} />
+              <Row k="Áreas de risco atingidas" v={<Prov value={affected.length} title="Áreas" sources={affected.map((a) => ({ label: a.area.name, meta: a.reasons.join(" · ") }))} />} />
               <Row k="Ocorrências registradas" v={<Prov value={s.incidents.length} title="Ocorrências" sources={s.incidents.map((i) => ({ label: `#${i.id} ${i.title}`, meta: i.place }))} />} />
               <H>3. Danos humanos</H>
               <Row k="Desabrigados" v={<Prov value={fide.homeless} title="Desabrigados" sources={desab.map((e) => ({ label: `${e.name} · ${e.people} pessoas`, meta: `${e.shelter} · ${fmtDateTime(e.at)}` }))} />} />
