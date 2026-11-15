@@ -6,7 +6,6 @@ import { stepNames, stepRoutes, type Role, type Stage } from "@/mock/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import iconAsset from "@/assets/reativa-icon.png.asset.json";
 
 const phases = [
   { label: "0 Prontidão", items: [
@@ -74,7 +73,7 @@ function TopBar({ mobile, audience = false }: { mobile: boolean; audience?: bool
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sidebar px-3 py-2 text-sidebar-foreground">
       <Link to="/gabinete/prontidao" className="flex items-center gap-2">
-        <img src={iconAsset.url} alt="" className="h-8 w-8 rounded-full" />
+        <img src="/reativa-icon.png" alt="" className="h-8 w-8 rounded-full" />
         <span className="text-base font-semibold tracking-tight text-sidebar-accent-foreground">Reativa</span>
       </Link>
       {!audience && <>

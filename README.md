@@ -1,29 +1,34 @@
-# Welcome to your Lovable project
+# Reativa
 
-This project was built with [Lovable](https://lovable.dev).
+Protótipo de gestão inteligente de desastres para Defesa Civil municipal, demonstrado no município fictício de Vale Sereno. Todos os dados são fictícios.
 
-## Build with Lovable
+## Desenvolvimento
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requer Node.js 22+ (ou Bun).
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+npm install
 npm run dev
 ```
 
-## Built with
+Outros comandos:
 
-- TanStack Start
-- TypeScript
-- React
+```sh
+npm test        # testes (Vitest)
+npm run lint    # ESLint + Prettier
+npm run build   # build de produção (Nitro)
+```
+
+## Estrutura
+
+- `src/store/app.ts` — estado da demo (Zustand); `buildState(step)` reconstrói cada passo do roteiro.
+- `src/store/selectors.ts` — totais de assistência, FIDE e métricas derivados dos mesmos registros.
+- `src/mock/` — dados do cenário e modelo de risco (H3).
+- `src/routes/` — telas (TanStack Start).
+
+## Feito com
+
+- TanStack Start, React, TypeScript
 - Tailwind CSS
+- Leaflet + basemap CARTO sem rótulos
+- h3-js
