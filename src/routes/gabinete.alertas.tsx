@@ -17,8 +17,8 @@ export const Route = createFileRoute("/gabinete/alertas")({
 const pt = { Severe: "Severo", Extreme: "Extremo", Moderate: "Moderado", Expected: "Esperada", Immediate: "Imediata", Likely: "Provável", Observed: "Observada" } as const;
 
 function Alertas() {
-  const { alerts, step, suggestions, acceptSuggestion, resources } = useApp();
-  const data = rainSeries(step);
+  const { alerts, clock, suggestions, acceptSuggestion, resources } = useApp();
+  const data = rainSeries(clock);
   const sim = scenario(ALERT_SCENARIO_LEVEL, [], resources);
   const south = southScenario(ALERT_SCENARIO_LEVEL, resources);
   const b07 = resources.find((r) => r.id === "CBM-B07");

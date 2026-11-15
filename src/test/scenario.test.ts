@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildState, useApp } from "@/store/app";
+import { buildState, COORD, nextHumanTask, useApp } from "@/store/app";
+import { STEP_CLOCK } from "@/mock/data";
 import { selectAffectedAreas, selectFide, selectAssistance, selectMetrics, shelterOccupancy } from "@/store/selectors";
 import { contains, GRID_BOUNDS, riskCells, riskFactors, scenario } from "@/mock/risk";
 import { INCIDENT_POS, floodPolygon, riskAreas, riverLine, routes, stepNames, fmtDateTime, at, requiredStep } from "@/mock/data";
@@ -33,7 +34,7 @@ describe("Reativa scenario rules", () => {
     useApp.getState().applyStep(6);
     useApp.getState().closeEvent();
     expect(useApp.getState().stage).toBe("Normalidade");
-    expect(useApp.getState().audit.at(-1)?.actor).toBe("Coordenador");
+    expect(useApp.getState().audit.find((e) => e.action.startsWith("Encerrar e desmobilizar"))?.actor).toBe(COORD);
   });
   it("computes 14 min from approval 15:28 to CBM-B07 arrival 15:42", () => {
     expect(selectMetrics(buildState(6)).planToArrival).toBe(14);
@@ -81,6 +82,78 @@ describe("Reativa scenario rules", () => {
   });
   it("formats dates with a full year and time", () => {
     expect(fmtDateTime(at(108))).toBe("14/11/2026 15:28");
+  });
+});
+
+describe("Scenario clock and live use", () => {
+  const live = () => { useApp.getState().applyStep(0); useApp.setState({ speed: 3 }); };
+  const runTo = (min: number) => { while (useApp.getState().clock < min) useApp.getState().tick(Math.min(30, min - useApp.getState().clock)); };
+
+  it("the clock alone brings external events but stops at human decisions", () => {
+    live(); runTo(200);
+    const s = useApp.getState();
+    expect(s.alerts).toHaveLength(1);
+    expect(s.reports).toHaveLength(4);
+    expect(s.missionStatus).toBe("pronto");
+    expect(s.stage).toBe("Atenção"); // Alerta needs the coordinator
+    expect(s.incidents).toHaveLength(0); // no incident without confirmation
+    expect(s.queue).toHaveLength(0);
+    expect(nextHumanTask(s)?.text).toBe("Decidir sugestões do alerta");
+  });
+
+  it("playing freely with the script's clicks ends exactly like the scripted demo", () => {
+    live();
+    const a = useApp.getState();
+    runTo(76); a.acceptSuggestion("s1", true); runTo(77); a.acceptSuggestion("s2", true);
+    runTo(102); a.decideDetection("hot1", true); a.decideDetection("hot2", false, "Caixa d'água aquecida");
+    runTo(103); a.mergeCluster(); runTo(104); a.confirmIncident();
+    runTo(108); a.approvePlan(); runTo(110); a.acceptSuggestion("crisis", true);
+    runTo(165); a.closeEvent(); runTo(170);
+    const s = useApp.getState(), ref = buildState(9);
+    expect(selectFide(s).homeless).toBe(27);
+    expect(selectFide(s).displaced).toBe(11);
+    expect(selectMetrics(s).planToArrival).toBe(14);
+    expect(selectMetrics(s).reportToPlan).toBe(13);
+    expect(s.stage).toBe("Normalidade");
+    expect(s.step).toBe(8);
+    expect(s.audit.map((e) => [fmtDateTime(e.at), e.actor])).toEqual(ref.audit.map((e) => [fmtDateTime(e.at), e.actor]));
+  });
+
+  it("human actions are stamped with the scenario clock, not the computer clock", () => {
+    useApp.getState().applyStep(4);
+    useApp.getState().approvePlan();
+    expect(fmtDateTime(useApp.getState().audit.at(-1)!.at)).toBe(fmtDateTime(at(STEP_CLOCK[4])));
+  });
+
+  it("the arrival follows the boat the coordinator actually chose", () => {
+    useApp.getState().applyStep(4);
+    useApp.getState().swapRow("a1", 0); // CBM-B03, ETA 9
+    useApp.getState().approvePlan();
+    useApp.setState({ speed: 3 });
+    runTo(STEP_CLOCK[4] + 9);
+    const arrival = selectMetrics(useApp.getState()).arrival;
+    expect(arrival?.actor).toBe("CBM-B03");
+    expect(selectMetrics(useApp.getState()).planToArrival).toBe(9);
+  });
+
+  it("offline field actions queue on the device and sync on reconnection", () => {
+    useApp.getState().applyStep(5);
+    useApp.getState().setOffline(true);
+    useApp.getState().advanceField();
+    useApp.getState().reportBlockage();
+    expect(useApp.getState().fieldStatus).toBe(0);
+    expect(useApp.getState().blockages).toHaveLength(0);
+    useApp.getState().setOffline(false);
+    expect(useApp.getState().fieldStatus).toBe(1);
+    expect(useApp.getState().blockages).toHaveLength(1);
+    expect(useApp.getState().offlineQueue).toHaveLength(0);
+  });
+
+  it("snapshots never replay toasts", () => {
+    expect(buildState(7).notifications.some((n) => n.fresh)).toBe(false);
+    useApp.getState().applyStep(4);
+    useApp.getState().approvePlan();
+    expect(useApp.getState().notifications.some((n) => n.fresh)).toBe(true);
   });
 });
 

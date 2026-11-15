@@ -1,5 +1,7 @@
 ## Project rules
-- All demo state lives in one Zustand store (`src/store/app.ts`); `buildState(step)` rebuilds the scenario deterministically so Voltar/Próximo stay consistent.
+- All scenario logic lives in `src/store/engine.ts`: a scenario clock (minutes after T0), a queue of automatic events, and human decisions as functions that mutate a `Data` copy. `src/store/app.ts` is a thin Zustand wrapper (clock speed, notifications, presenter mode).
+- Every timestamp comes from the scenario clock (`at(d.clock)`), never from the computer clock.
+- `buildState(step)` is a replay of the scripted human decisions up to `STEP_CLOCK[step]`; free use and the script must stay equivalent (see the "playing freely" test). New behaviour goes into an engine event or decision, not into `buildState`.
 - Maps are loaded client-only via `LazyMap` (Leaflet breaks SSR); map colors read CSS tokens at runtime.
 - Shared selectors derive assistance totals, FIDE and audit metrics from record collections so views cannot diverge.
 - H3 risk attributes are deterministic browser-safe model data; all scenario controls and imagery decisions remain in the demo store.

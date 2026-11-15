@@ -11,7 +11,8 @@ function Demo() {
   const navigate = useNavigate();
   useEffect(() => {
     useApp.getState().applyStep(0);
-    useApp.setState({ demoMode: true, role: "Coordenador" });
+    // /demo is the presenter's entry point: script controls on, clock paused.
+    useApp.setState({ presenter: true, speed: 0, role: "Coordenador" });
     navigate({ to: "/gabinete/prontidao", replace: true });
   }, [navigate]);
   return <p className="text-sm text-muted-foreground">Reiniciando demonstração…</p>;

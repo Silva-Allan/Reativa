@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { AlertTriangle, BarChart3, BellRing, BookOpen, ChevronLeft, ChevronRight, ClipboardList, FileText, History, Home, Map, ScanLine, Inbox, ListChecks, RotateCcw, ShieldCheck, Truck, Wrench } from "lucide-react";
+import { AlertTriangle, BarChart3, BellRing, BookOpen, ChevronLeft, ChevronRight, ClipboardList, FileText, History, Home, Map, Presentation, ScanLine, Inbox, ListChecks, RotateCcw, ShieldCheck, Truck, Wrench } from "lucide-react";
+import { AgendaStrip, ClockBar, NotificationBell, ScenarioRuntime } from "./ScenarioClock";
 import { useApp } from "@/store/app";
 import { requiredStep, stepNames, stepRoutes, type Role, type Stage } from "@/mock/data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -72,7 +73,7 @@ function DemoControls({ compact }: { compact?: boolean }) {
 }
 
 function TopBar({ mobile, audience = false }: { mobile: boolean; audience?: boolean }) {
-  const { stage, role, setRole } = useApp();
+  const { stage, role, setRole, presenter, setPresenter, speed } = useApp();
   const navigate = useNavigate();
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sidebar px-3 py-2 text-sidebar-foreground">
@@ -81,11 +82,17 @@ function TopBar({ mobile, audience = false }: { mobile: boolean; audience?: bool
         <span className="text-base font-semibold tracking-tight text-sidebar-accent-foreground">Reativa</span>
       </Link>
       {!audience && <>
-      <span className="hidden text-xs sm:inline">Vale Sereno (município fictício)</span>
+      <span className="hidden text-xs 2xl:inline">Vale Sereno (município fictício)</span>
       <span className={cn("rounded px-2 py-0.5 text-xs font-semibold", stageCls[stage])}>{stage}</span>
-      <span className="flex items-center gap-1.5 text-xs font-medium text-sidebar-accent-foreground"><span className="live-dot" />ao vivo</span>
+      {speed > 0 && <span className="hidden items-center gap-1.5 text-xs font-medium text-sidebar-accent-foreground xl:flex"><span className="live-dot" />ao vivo</span>}
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <DemoControls compact={mobile} />
+        <ClockBar compact={mobile} />
+        {presenter && <DemoControls compact={mobile} />}
+        <Button size="sm" variant="ghost" aria-pressed={presenter} onClick={() => setPresenter(!presenter)} title="Modo apresentação: controles Passo X/9 e setas do teclado"
+          className={cn("h-8 gap-1 px-2 text-xs text-sidebar-foreground hover:bg-sidebar-border hover:text-sidebar-accent-foreground", presenter && "bg-sidebar-border text-sidebar-accent-foreground")}>
+          <Presentation className="h-4 w-4" />{!mobile && "Roteiro"}
+        </Button>
+        <NotificationBell />
         <Select value={role} onValueChange={(v) => { setRole(v as Role); navigate({ to: roleHome[v as Role] }); }}>
           <SelectTrigger className="h-8 w-[170px] border-sidebar-border bg-sidebar-accent text-xs text-sidebar-accent-foreground"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -121,6 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (mobileOnly) {
     return (
       <div className="min-h-screen bg-background">
+        <ScenarioRuntime audience={path.startsWith("/cidadao")} />
         <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile audience={path.startsWith("/cidadao")} /></div>
         <main className="mx-auto max-w-[420px] px-4 py-4">{children}</main>
       </div>
@@ -128,6 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
   return (
     <div className="dark min-h-screen bg-background text-foreground">
+      <ScenarioRuntime audience={false} />
       <div className="no-print sticky top-0 z-[1000]">{banner}<TopBar mobile={false} /></div>
       <div className="flex">
         <aside className="no-print sticky top-[78px] hidden h-[calc(100vh-78px)] w-56 shrink-0 overflow-y-auto border-r border-sidebar-border bg-sidebar px-2 py-3 md:block">
@@ -145,7 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link to="/campo" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><Truck className="h-4 w-4" />Equipe de campo</Link>
           <Link to="/cidadao" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent"><AlertTriangle className="h-4 w-4" />Cidadão</Link>
         </aside>
-        <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-6"><div className="no-print"><AgendaStrip /></div>{children}</main>
       </div>
       <nav className="no-print fixed inset-x-0 bottom-0 z-[1000] flex justify-around border-t border-sidebar-border bg-sidebar py-1.5 md:hidden">
         {[{ to: "/gabinete/prontidao", l: "Prontidão", i: ShieldCheck }, { to: "/gabinete/alertas", l: "Gatilho", i: BellRing }, { to: "/gabinete/triagem", l: "Resposta", i: Inbox }, { to: "/gabinete/abrigos", l: "Assistência", i: Home }, { to: "/relatorios", l: "Relatórios", i: BarChart3 }].map((x) => (

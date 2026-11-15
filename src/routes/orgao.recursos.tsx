@@ -12,7 +12,7 @@ export const Route = createFileRoute("/orgao/recursos")({
   component: Recursos,
 });
 function Recursos() {
-  const { resources, step, checkIn } = useApp();
+  const { resources, clock, checkIn } = useApp();
   const [ag, setAg] = useState("pm");
   return (
     <div>
@@ -27,7 +27,7 @@ function Recursos() {
           <thead className="text-left text-xs text-muted-foreground"><tr><th className="py-1.5">Prefixo</th><th>Tipo</th><th>Cap.</th><th>Zona</th><th>Status</th><th>Último check-in</th></tr></thead>
           <tbody className="divide-y">{resources.filter((r) => r.agency === ag).map((r) => (
             <tr key={r.id}><td className="py-1.5 font-medium">{r.callsign}</td><td>{r.type}</td><td>{r.capacity}</td><td>{r.zone}</td><td>{r.status}</td>
-              <td>{isCheckInLate(r, step) ? <Chip tone="red">atrasado · {fmtDateTime(r.lastCheckIn)}</Chip> : fmtDateTime(r.lastCheckIn)}</td></tr>
+              <td>{isCheckInLate(r, clock) ? <Chip tone="red">atrasado · {fmtDateTime(r.lastCheckIn)}</Chip> : fmtDateTime(r.lastCheckIn)}</td></tr>
           ))}</tbody>
         </table>
       </Panel>

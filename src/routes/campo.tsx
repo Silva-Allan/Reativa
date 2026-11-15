@@ -18,7 +18,10 @@ export const Route = createFileRoute("/campo")({
 });
 
 function Campo() {
-  const { assignments, blockages, fieldStatus, advanceField, addPhoto, reportBlockage, offline, setOffline, queued, photos, incidents } = useApp();
+  const { assignments, blockages, fieldStatus: synced, advanceField, addPhoto, reportBlockage, offline, setOffline, offlineQueue, photos, incidents } = useApp();
+  const queued = offlineQueue.length;
+  // Offline: the team still sees its own progress on the device; it syncs on reconnection.
+  const fieldStatus = Math.min(FIELD_STEPS.length - 1, synced + offlineQueue.filter((a) => a.kind === "field").length);
   const [caption, setCaption] = useState("");
   const task = assignments.find((a) => a.resourceId === "CBM-B07") ?? assignments[0];
   const amb = assignments.find((a) => a.id === "a2");

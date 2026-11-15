@@ -23,7 +23,7 @@ function Risk() {
   const { level } = Route.useSearch();
   const [layer, setLayer] = useState<Layer>("risk");
   useEffect(() => { if (level !== undefined && Number.isFinite(level)) s.setRiverLevel(level); }, [level, s.setRiverLevel]);
-  const rain = rainSeries(s.step).at(-1)?.mm ?? 0;
+  const rain = rainSeries(s.clock).at(-1)?.mm ?? 0;
   const exposed = scenario(s.riverLevel, s.shelters, s.resources);
   const flooded = new Set(exposed.flooded.map((c) => c.id));
   const proposals = s.suggestions.filter((x) => x.id.startsWith("move:") || x.id.startsWith("activate:"));

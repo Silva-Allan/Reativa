@@ -21,7 +21,7 @@ export const selectAssistance = (s: Data) => {
 export function selectMetrics(s: Data) {
   const first = s.audit.find((e) => e.action.includes("Relato") && e.action.includes("recebido"));
   const approval = s.audit.find((e) => e.action.startsWith("Aprovou plano"));
-  const arrival = s.audit.find((e) => e.actor === "CBM-B07" && e.action === "Status: No local");
+  const arrival = s.audit.find((e) => e.action === "Status: No local");
   const elapsed = (a?: string, b?: string) => a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 60000) : null;
   return { reportToPlan: elapsed(first?.at, approval?.at), planToArrival: elapsed(approval?.at, arrival?.at), unchanged: s.assignments.length ? Math.round(s.assignments.filter((a) => a.status === "aprovada").length / s.assignments.length * 100) : null, first, approval, arrival };
 }

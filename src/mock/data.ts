@@ -140,13 +140,18 @@ export const capAlert: CapAlert = {
   expires: at(70 + 24 * 60),
 };
 
-export function rainSeries(step: number) {
-  const final = step >= 1 ? 134 : 86;
+/** 72 h accumulated rain at scenario minute `clock`: 86 mm at 13:40, crosses 120 mm at 14:52, 134 mm from 15:00. */
+export function rainAt(clock: number) {
+  const x = Math.max(0, Math.min(1, (clock - 40) / 40));
+  return Math.round((86 + 48 * Math.pow(x, 1.5)) * 10) / 10;
+}
+export function rainSeries(clock: number) {
+  const final = rainAt(clock);
   const out: { h: string; mm: number }[] = [];
   for (let i = 0; i <= 72; i++) {
     const t = i / 72;
     const base = 86 * (t * 0.7 + Math.pow(t, 3) * 0.3);
-    const surge = step >= 1 ? (final - 86) * Math.pow(Math.max(0, (t - 0.8) / 0.2), 2) : 0;
+    const surge = (final - 86) * Math.pow(Math.max(0, (t - 0.8) / 0.2), 2);
     out.push({ h: i % 12 === 0 ? `-${72 - i}h` : "", mm: Math.round((base + surge) * 10) / 10 });
   }
   out[72]!.h = "agora";
@@ -222,3 +227,7 @@ export function requiredStep(path: string): number {
 }
 /** Minutes after T0 at which the coordinator closes the event in the scripted demo (16:25). */
 export const CLOSE_MIN = 165;
+/** Scenario clock (minutes after T0) at the end of each demo step. */
+export const STEP_CLOCK = [0, 73, 100, 101, 105, 108, 123, 135, CLOSE_MIN, 170] as const;
+/** CBM-D01 thermal mission take-off (15:16). */
+export const DRONE_START = 96;
